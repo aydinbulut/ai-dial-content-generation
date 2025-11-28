@@ -16,18 +16,42 @@ async def _put_image() -> Attachment:
     mime_type_png = 'image/png'
     # TODO:
     #  1. Create DialBucketClient
-    #  2. Open image file
-    #  3. Use BytesIO to load bytes of image
-    #  4. Upload file with client
-    #  5. Return Attachment object with title (file name), url and type (mime type)
-    raise NotImplementedError
-
+    async with DialBucketClient(
+        api_key=API_KEY,
+        base_url=DIAL_URL,
+    ) as bucket_client:
+        #  2. Open image file
+        with open(image_path, "rb") as image_file:
+            #  3. Use BytesIO to load bytes of image
+            image_bytes = image_file.read()
+            byte_stream = BytesIO(image_bytes)
+            #  4. Upload file with client
+            attachment = await bucket_client.put_file(
+                name=file_name,
+                mime_type=mime_type_png,
+                content=byte_stream,
+            )
+    
+            #  5. Return Attachment object with title (file name), url and type (mime type)
+            return Attachment(
+                title=file_name,
+                type=mime_type_png,
+                url=attachment['url'],
+            )
 
 def start() -> None:
     # TODO:
     #  1. Create DialModelClient
+    dial_model_client = DialModelClient(
+        endpoint=DIAL_CHAT_COMPLETIONS_ENDPOINT,
+        deployment_name="gpt-4o",
+        api_key=API_KEY,
+    )
     #  2. Upload image (use `_put_image` method )
+    attachment = asyncio.run(_put_image())
     #  3. Print attachment to see result
+    print("Uploaded Attachment:")
+    print(attachment)
     #  4. Call chat completion via client with list containing one Message:
     #    - role: Role.USER
     #    - content: "What do you see on this picture?"
@@ -38,7 +62,14 @@ def start() -> None:
     #        adapts this attachment to Message content in appropriate format for Model.
     #  TRY THIS APPROACH WITH DIFFERENT MODELS!
     #  Optional: Try upload 2+ pictures for analysis
-    raise NotImplementedError
-
+    message = dial_model_client.get_completion(
+        messages=[
+            Message(
+                role=Role.USER,
+                content="What do you see on this picture?",
+                custom_content=CustomContent(attachments=[attachment])
+            )
+        ]
+    )
 
 start()
